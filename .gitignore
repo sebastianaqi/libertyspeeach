@@ -49,3 +49,7 @@ Thumbs.db
 *.h5
 *.pkl
 *.joblib
+
+
+# Otros
+.docx
