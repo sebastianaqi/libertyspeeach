@@ -107,7 +107,7 @@ texto_reporte = st.text_area("Escribe tu consulta aquí:", value=prompt_default,
 if st.button(key="reporte", label= "generar reporte")  and st.session_state.df is not None:
     
     new_text =  ini_promp + "\n" + texto_reporte + "\n" + fin_promp
-    print(new_text)
+
     df_aux = st.session_state.df 
     sample_transcripts = df_aux['TRANSCRIPT'].dropna().sample(len(df_aux)).tolist()
 
@@ -121,7 +121,7 @@ if st.button(key="reporte", label= "generar reporte")  and st.session_state.df i
     Transcripciones:\n
     {joined_transcripts}
     """
-    print( new_text + "\n" + prompt2)
+
     client = OpenAI()
     completion = client.chat.completions.create(
         model="gpt-4o-mini",  # o "gpt-3.5-turbo"
@@ -148,28 +148,28 @@ if st.button(key="reporte", label= "generar reporte")  and st.session_state.df i
 
 
 # Entrada de texto para enviar consulta
-st.markdown("---")
-st.subheader("Consulta personalizada")
-texto_usuario = st.text_area("Escribe tu consulta aquí:")
+# st.markdown("---")
+# st.subheader("Consulta personalizada")
+# texto_usuario = st.text_area("Escribe tu consulta aquí:")
 
-if st.button("Enviar Consulta") and st.session_state.df is not None:
-    st.write("Texto recibido:", texto_usuario)
-    # Aquí puedes agregar la lógica para enviar este texto a tu backend o modelo
-    import pandas as pd
-    import lotus
-    from lotus.models import SentenceTransformersRM, LM
-    # Configurar los modelos
-    lm = LM(model="gpt-4o-mini")  # o "gpt-3.5-turbo"
-    rm = SentenceTransformersRM(model="intfloat/e5-base-v2")
+# if st.button("Enviar Consulta") and st.session_state.df is not None:
+#     st.write("Texto recibido:", texto_usuario)
+#     # Aquí puedes agregar la lógica para enviar este texto a tu backend o modelo
+#     import pandas as pd
+#     import lotus
+#     from lotus.models import SentenceTransformersRM, LM
+#     # Configurar los modelos
+#     lm = LM(model="gpt-4o-mini")  # o "gpt-3.5-turbo"
+#     rm = SentenceTransformersRM(model="intfloat/e5-base-v2")
 
-    lotus.settings.configure(lm=lm, rm=rm)
+#     lotus.settings.configure(lm=lm, rm=rm)
 
-    # Cargar tus datos (asegúrate que la columna se llame 'transcripcion')
-    df = st.session_state.df
-    df2 = df.dropna(subset=["TRANSCRIPT"])
+#     # Cargar tus datos (asegúrate que la columna se llame 'transcripcion')
+#     df = st.session_state.df
+#     df2 = df.dropna(subset=["TRANSCRIPT"])
 
-    # Aplicar filtro semántico: solo llamadas con sentimiento negativo
-    llamadas_negativas = df2.sem_filter(
-        "{TRANSCRIPT}" + texto_usuario
-    )
-    st.dataframe(llamadas_negativas)
+#     # Aplicar filtro semántico: solo llamadas con sentimiento negativo
+#     llamadas_negativas = df2.sem_filter(
+#         "{TRANSCRIPT}" + texto_usuario
+#     )
+#     st.dataframe(llamadas_negativas)
