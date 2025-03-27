@@ -1,12 +1,9 @@
 from docx import Document
-import streamlit as st
 import pandas as pd
 import numpy as np
-from tools.consultas import ejecutar_consulta_segura, ENGINE_DS
 import os
 from openai import OpenAI
-import pandas as pd
-
+import streamlit as st
 
 
 def text_to_word(text, output_filename="output.docx"):
@@ -105,19 +102,21 @@ prompt_default = f"""
 # Sección para generar reporte
 st.markdown("---")
 st.subheader("Generar reporte")
+
 texto_reporte = st.text_area("Escribe tu consulta aquí:", value=prompt_default, height= 500)
 if st.button(key="reporte", label= "generar reporte")  and st.session_state.df is not None:
     
     new_text =  ini_promp + "\n" + texto_reporte + "\n" + fin_promp
     print(new_text)
     df_aux = st.session_state.df 
-    if len(df_aux) >= 100:
-        sample_transcripts = df_aux['TRANSCRIPT'].dropna().sample(100).tolist()
-    else: 
-        sample_transcripts = df_aux['TRANSCRIPT'].dropna().sample(len(df_aux)).tolist()
+    sample_transcripts = df_aux['TRANSCRIPT'].dropna().sample(len(df_aux)).tolist()
+
     
     joined_transcripts = "\n\n".join(sample_transcripts)
-    joined_transcripts = joined_transcripts[0:2000]
+        
+    if len(joined_transcripts) > 200000:
+        joined_transcripts = joined_transcripts[0:200000]
+    
     prompt2 = f"""
     Transcripciones:\n
     {joined_transcripts}
