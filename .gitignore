@@ -1,0 +1,51 @@
+# Archivos de Python
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+**/__pycache__/
+
+# Notebooks
+*.ipynb
+.ipynb_checkpoints/
+
+# Archivos de entorno/virtualenv
+.env
+.venv/
+env/
+venv/
+ENV/
+*.env
+
+# Datos y archivos grandes
+data/
+*.csv
+*.json
+*.xlsx
+*.parquet
+*.db
+
+# Archivos temporales del sistema
+.DS_Store
+Thumbs.db
+
+# Archivos de logs
+*.log
+
+# Carpeta de configuración local de Streamlit
+.streamlit/secrets.toml
+
+# Archivos de VSCode
+.vscode/
+
+# Archivos comprimidos o binarios
+*.zip
+*.tar.gz
+*.rar
+*.exe
+
+# Modelos
+*.pt
+*.h5
+*.pkl
+*.joblib
