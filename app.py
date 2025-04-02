@@ -1,71 +1,48 @@
 from docx import Document
+from langchain_openai import ChatOpenAI
 import pandas as pd
 import numpy as np
 import os
 from openai import OpenAI
 import streamlit as st
+from tools.tratamientos import text_to_word
+from langchain.agents.agent_types import AgentType
+from langchain_experimental.agents.agent_toolkits import create_pandas_dataframe_agent
 
 
-def text_to_word(text, output_filename="output.docx"):
-    doc = Document()
-    lines = text.split("\n")
-    
-    for line in lines:
-        stripped = line.strip()
-
-        if stripped.startswith("# "):  # Encabezado nivel 1
-            doc.add_heading(stripped[2:].replace("**", ""), level=1)
-        elif stripped.startswith("## "):  # Encabezado nivel 2
-            doc.add_heading(stripped[3:].replace("**", ""), level=2)
-        elif stripped.startswith("### "):  # Encabezado nivel 3
-            doc.add_heading(stripped[4:].replace("**", ""), level=3)
-        elif stripped.startswith("- "):  # Lista
-            doc.add_paragraph(stripped[2:].replace("**", ""), style="List Bullet")
-        elif stripped.startswith("**") and stripped.endswith("**"):  # Negrita
-            paragraph = doc.add_paragraph()
-            run = paragraph.add_run(stripped[2:-2])
-            run.bold = True
-        elif stripped.startswith("```"):  # Bloque de código
-            continue  # Podrías agregar soporte para bloques si lo deseas
-        elif stripped:
-            doc.add_paragraph(stripped.replace("**", ""))
-    
-    doc.save(output_filename)
-    print(f"✅ Documento guardado como {output_filename}")
-
-print(f"ESTA ES LA RUTA {os.getcwd()} "  )
 # Título del aplicativo
-st.set_page_config(page_title="Consulta Speeach Liberty renovaciones", layout="wide")
-st.title('Consulta Speeach Liberty renovaciones')
+st.set_page_config(page_title="Consulta Speeach Liberty", layout="centered", )
+st.title('Consulta Speeach Liberty')
 
+
+# Cargar datos
+df_global:pd.DataFrame = pd.read_pickle("./data/df_fin_streamlit.pkl")
 st.sidebar.title("Filtros")
-fecha_seleccionada = st.sidebar.date_input("Selecciona una fecha", pd.to_datetime("2025-03-01"))
-fecha_seleccionada = pd.to_datetime(fecha_seleccionada)  # Asegura datetime completo
+fecha_minima = df_global['DATE'].min()
+fecha_max = df_global['DATE'].max()
+fecha_seleccionada = st.sidebar.date_input(
+    "Selecciona una fecha", 
+    min_value= fecha_minima,
+    max_value= fecha_max,
+    value=fecha_minima
+)
+
+
+opciones_linea = df_global['SERVICE_LINE'].dropna().unique().tolist()
+linea_seleccionada = st.sidebar.selectbox("Selecciona una línea de servicio", opciones_linea)
+
 
 if "df" not in st.session_state:
     st.session_state.df = None
 
 if st.sidebar.button("Aplicar Filtro"):
-    #import lotus
-    #from lotus.models import SentenceTransformersRM, LM
-
     fecha = fecha_seleccionada.strftime('%Y-%m-%d')
-    print(fecha)
-    query = f'''
-    SELECT * FROM [DS].[dbo].[tbl_Speech_resumen_call] 
-    WHERE [CAMPAIGN] ='LIBERTY' 
-    AND TRY_CONVERT(date, [DATE]) >= '{fecha}' 
-    AND [SERVICE_LINE] = 'Renovaciones'
-    '''
-
     with st.spinner("Cargando datos..."):
-        #st.session_state.df = ejecutar_consulta_segura(query=query, engine=ENGINE_DS)
-        df:pd.DataFrame = pd.read_pickle("./data/tabla_speeach_liberty.pkl")
+        df:pd.DataFrame = df_global[df_global['SERVICE_LINE'] == linea_seleccionada]
         df['DATE'] = pd.to_datetime(df['DATE'])
         df = df[df['DATE'] >=  pd.Timestamp(fecha)]
         st.session_state.df = df
     st.success("Datos cargados correctamente")
-
 if st.session_state.df is not None:
     st.dataframe(st.session_state.df)
 else:
@@ -77,11 +54,12 @@ else:
 ini_promp = """
 Eres un analista experto en comportamiento del cliente y redacción de reportes ejecutivos.
 Tengo las siguientes transcripciones de llamadas realizadas a clientes como parte de una campaña de renovación con la empresa Mas Móvil. Esta campaña está pasando por una crisis y necesito un análisis detallado.
-Por favor, analiza el contenido de las conversaciones y genera un **reporte en formato tipo Markdown** con los siguientes elementos:
+Por favor, analiza el contenido de las conversaciones con los siguientes elementos:
 """
 
 fin_promp = """
 Redacta el contenido en un estilo claro, profesional y orientado a toma de decisiones, usando títulos y subtítulos tipo Markdown.
+ **reporte en formato tipo Markdown**
 """
 
 
@@ -103,15 +81,14 @@ prompt_default = f"""
 st.markdown("---")
 st.subheader("Generar reporte")
 
-texto_reporte = st.text_area("Escribe tu consulta aquí:", value=prompt_default, height= 500)
+texto_reporte = st.text_area("Escribe tu consulta aquí:", 
+                             value= ini_promp+ "\n\n"+ prompt_default, height= 500)
 if st.button(key="reporte", label= "generar reporte")  and st.session_state.df is not None:
     
     new_text =  ini_promp + "\n" + texto_reporte + "\n" + fin_promp
 
     df_aux = st.session_state.df 
-    sample_transcripts = df_aux['TRANSCRIPT'].dropna().sample(len(df_aux)).tolist()
-
-    
+    sample_transcripts = df_aux['TRANSCRIPT'].dropna().sample(len(df_aux)).tolist()    
     joined_transcripts = "\n\n".join(sample_transcripts)
         
     if len(joined_transcripts) > 200000:
@@ -143,7 +120,36 @@ if st.button(key="reporte", label= "generar reporte")  and st.session_state.df i
 
 
 
+# Entrada de texto para la consulta
+st.markdown("---")
+st.subheader("Consulta sobre el DataFrame")
+pregunta_usuario = st.text_area("Haz una pregunta sobre los datos cargados")
 
+if st.button("Consultar agente") and st.session_state.df is not None:
+    with st.spinner("Consultando al agente..."):
+        df = st.session_state.df
+
+        # Crear el agente
+        llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+        agent = create_pandas_dataframe_agent(
+            llm=llm,
+            df=df,
+            verbose=False,
+            agent_type=AgentType.OPENAI_FUNCTIONS,
+            handle_parsing_errors=True,
+            allow_dangerous_code=True,
+            max_iterations=10
+        )
+
+        # Ejecutar consulta
+        try:
+            respuesta = agent.run(pregunta_usuario)
+            st.markdown("### Respuesta del agente")
+            st.write(respuesta)
+        except Exception as e:
+            st.error(f"Error al procesar la consulta: {str(e)}")
+else:
+    st.info("Escribe tu pregunta y asegúrate de haber cargado datos con 'Aplicar Filtro'")
 
 
 

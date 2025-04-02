@@ -66,7 +66,6 @@ def enviar_correo(destinatarios, asunto, cuerpo):
         
         
         
-
 def ejecutar_consulta_segura(engine, query, dtype=None, reintentos=3, espera=5):
     """
     Ejecuta una consulta SQL con manejo de reconexión en caso de error de conexión.
@@ -86,16 +85,22 @@ def ejecutar_consulta_segura(engine, query, dtype=None, reintentos=3, espera=5):
     while intentos < reintentos:
         try:
             print(f"Ejecutando consulta... Intento {intentos + 1}/{reintentos}")
-            df = pd.read_sql_query(sql=query, con=engine, dtype=dtype)
+            with engine.connect() as connection:
+                if dtype:
+                    df = pd.read_sql_query(sql=query, con=connection, dtype=dtype)
+                else:
+                    df = pd.read_sql_query(sql=query, con=connection)
             print("Consulta ejecutada exitosamente.")
-            return df  # Retorna el resultado si la consulta fue exitosa
+            return df
 
         except OperationalError as e:
+            print(f"Error de conexión: {e}. Reintentando en {espera} segundos...")
             time.sleep(espera)
             intentos += 1
 
     print(f"Fallaron los {reintentos} intentos de conexión.")
     raise Exception("No se pudo conectar a la base de datos después de varios intentos.")
+
 
 
 
